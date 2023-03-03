@@ -120,10 +120,10 @@ g["malformed"] = @benchmarkable nextind_benchmarker($malformed_string)
 
 function getindex_benchmarker(s,step)
     l = ncodeunits(s)
-    ret = UInt(0)
+    ret = UInt32(0)
     i=l
     for i = 1:step:l
-        ret += UInt(getindex(s,i))
+        ret += reinterpret(UInt32,getindex(s,i))
     end
     return ret
 end
@@ -134,6 +134,19 @@ g["2-byte"] = @benchmarkable getindex_benchmarker(s,2) setup=(s = 'Δ'^600)
 g["3-byte"] = @benchmarkable getindex_benchmarker(s,3) setup=(s = '￦'^400)
 g["4-byte"] = @benchmarkable getindex_benchmarker(s,4) setup=(s = '🚀'^300)
 
+function iterate_benchmarker(s)
+
+    ret = UInt32(0)
+    for c in s
+        ret += reinterpret(UInt32,c)
+    end
+    return ret
+end
+
+g = addgroup!(SUITE, "iterate")
+g["ascii"] = @benchmarkable iterate_benchmarker($ascii_string)
+g["unicode"] = @benchmarkable iterate_benchmarker($unicode_string)
+g["malformed"] = @benchmarkable iterate_benchmarker($malformed_string)
 loadparams!(SUITE, BenchmarkTools.load(PARAMS_PATH)[1], :evals, :samples);
 
 end # module StringBenchmarks
