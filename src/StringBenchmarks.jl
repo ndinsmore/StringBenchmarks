@@ -3,6 +3,7 @@ module StringBenchmarks
 include(joinpath(dirname(@__FILE__), "..", "src/utils", "RandUtils.jl"))
 using .RandUtils
 using BenchmarkTools
+using Random
 
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 BenchmarkTools.DEFAULT_PARAMETERS.samples = 10000
@@ -12,20 +13,26 @@ BenchmarkTools.DEFAULT_PARAMETERS.memory_tolerance = 0.01
 const PARAMS_PATH = joinpath(dirname(@__FILE__), "..", "etc", "params.json")
 const BASE_DUMP_PATH = joinpath(dirname(@__FILE__), "..", "etc", "juliav1.9.0-beta4.jl_dump")
 
-julia_source_string = read($BASE_DUMP_PATH,String)
-julia_source_file_substrings = split(julia_source_string,"#Dump-file:")
+julia_source_string = read(BASE_DUMP_PATH,String)
+julia_source_file_substrings = shuffle!( RandUtils.StableRNG(0),  split(julia_source_string,"#Dump-file:"))
+
 julia_source_lines_substrings = split(julia_source_string,"\n")
 
-
 const SUITE = BenchmarkGroup()
+
+function tune_params!()
+    res = tune!(SUITE)
+    BenchmarkTools.save(PARAMS_PATH,params(SUITE));
+end
+
 
 function add_julia_source_benchmarks(g,bench_function)
     h = addgroup!(g, "julia 1.9 source")
     h["lines"] = @benchmarkable $bench_function(strings) setup = (strings = String.($julia_source_lines_substrings))
-    h["files"] = @benchmarkable $bench_function(strings) setup = (strings = String.($julia_source_file_substring))
+    h["files"] = @benchmarkable $bench_function(strings) setup = (strings = String.($julia_source_file_substrings))
 
     h["lines SubString"] = @benchmarkable $bench_function(strings) setup = (strings = $julia_source_lines_substrings)
-    h["files SubString"] = @benchmarkable $bench_function(strings) setup = (strings = $julia_source_file_substring)
+    h["files SubString"] = @benchmarkable $bench_function(strings) setup = (strings = $julia_source_file_substrings)
 end
 
 # By using the same length seed these function
