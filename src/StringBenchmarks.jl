@@ -12,8 +12,21 @@ BenchmarkTools.DEFAULT_PARAMETERS.memory_tolerance = 0.01
 const PARAMS_PATH = joinpath(dirname(@__FILE__), "..", "etc", "params.json")
 const BASE_DUMP_PATH = joinpath(dirname(@__FILE__), "..", "etc", "juliav1.9.0-beta4.jl_dump")
 
+julia_source_string = read($BASE_DUMP_PATH,String)
+julia_source_file_substrings = split(julia_source_string,"#Dump-file:")
+julia_source_lines_substrings = split(julia_source_string,"\n")
+
 
 const SUITE = BenchmarkGroup()
+
+function add_julia_source_benchmarks(g,bench_function)
+    h = addgroup!(g, "julia 1.9 source")
+    h["lines"] = @benchmarkable $bench_function(strings) setup = (strings = String.($julia_source_lines_substrings))
+    h["files"] = @benchmarkable $bench_function(strings) setup = (strings = String.($julia_source_file_substring))
+
+    h["lines SubString"] = @benchmarkable $bench_function(strings) setup = (strings = $julia_source_lines_substrings)
+    h["files SubString"] = @benchmarkable $bench_function(strings) setup = (strings = $julia_source_file_substring)
+end
 
 # By using the same length seed these function
 function random_length_nonascii_strings(length_range; length_seed = RandUtils.StableRNG(0),
@@ -60,6 +73,8 @@ for len in length_ranges
     h["length $len"] = @benchmarkable isascii_benchmarker(strings) setup = (strings = random_length_nonascii_strings($len))
 end
 
+add_julia_source_benchmarks(g,isascii_benchmarker)
+
 function length_benchmarker(strings)
     ret = Int(0)
     for s in strings
@@ -80,7 +95,8 @@ for len in length_ranges
     h["length $len"] = @benchmarkable length_benchmarker(strings) setup = (strings = random_length_nonascii_strings($len))
 end
 
-g["julia lines"] = @benchmarkable length_benchmarker(strings) setup = (strings = readlines($BASE_DUMP_PATH))
+add_julia_source_benchmarks(g,length_benchmarker)
+
 
 n = 1_000
 ascii_string  = RandUtils.randstring(StableRNG(1), n)
