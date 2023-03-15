@@ -90,9 +90,9 @@ function add_variable_length_benchmarks(g,bench_function)
                     ("Unicode",random_length_unicode_strings)
                     ]
     for (name, fun) = name_fun
-        @show (name,fun)
         h = addgroup!(g, name)
         for len in length_ranges
+
             h["length $len"] = @benchmarkable $bench_function(strings) setup = (strings = $fun($len))
         end
     end
@@ -202,6 +202,8 @@ g = addgroup!(SUITE, "iterate")
 g["ascii"] = @benchmarkable iterate_benchmarker($ascii_string)
 g["unicode"] = @benchmarkable iterate_benchmarker($unicode_string)
 g["malformed"] = @benchmarkable iterate_benchmarker($malformed_string)
+
+
 loadparams!(SUITE, BenchmarkTools.load(PARAMS_PATH)[1], :evals, :samples);
 
 end # module StringBenchmarks
