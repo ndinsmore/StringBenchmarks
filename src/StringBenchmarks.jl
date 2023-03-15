@@ -35,7 +35,7 @@ function add_julia_source_benchmarks(g,bench_function)
     h["files SubString"] = @benchmarkable $bench_function(strings) setup = (strings = $julia_source_file_substrings)
 end
 
-# By using the same length seed these function
+# By using the same length seed these function should have the same string length
 function random_length_nonascii_strings(length_range; length_seed = RandUtils.StableRNG(0),
                                        location_seed = RandUtils.StableRNG(1),
                                        total_characters = 1_000_000)
@@ -60,6 +60,43 @@ function random_length_ascii_strings(length_range; length_seed = RandUtils.Stabl
     end
     return [make_rand_string() for n in 1:num_strings]
 end
+function random_length_malformed_strings(length_range; length_seed = RandUtils.StableRNG(0),
+                                     total_characters = 1_000_000)
+    num_strings = round(total_characters / ((first(length_range) + last(length_range)) / 2))
+    fill_char = 's'
+    function make_rand_string()
+        l = rand(length_seed, length_range)
+        return String(rand(UInt8,l))
+    end
+    return [make_rand_string() for n in 1:num_strings]
+end
+
+function random_length_unicode_strings(length_range; length_seed = RandUtils.StableRNG(0),
+    string_seed = RandUtils.StableRNG(0),
+    total_characters = 1_000_000)
+    num_strings = round(total_characters / ((first(length_range) + last(length_range)) / 2))
+    fill_char = 's'
+    function make_rand_string()
+        l = rand(length_seed, length_range)
+        return randstring(string_seed,Char,Int(round(l/3.94)))
+    end
+    return [make_rand_string() for n in 1:num_strings]
+end
+
+function add_variable_length_benchmarks(g,bench_function)
+    length_ranges = [2:64, 64:512, 512:4096, 4096:32768]
+    name_fun = [    ("ASCII",random_length_ascii_strings),
+                    ("single nonASCII",random_length_nonascii_strings),
+                    ("Unicode",random_length_unicode_strings)
+                    ]
+    for (name, fun) = name_fun
+        @show (name,fun)
+        h = addgroup!(g, name)
+        for len in length_ranges
+            h["length $len"] = @benchmarkable $bench_function(strings) setup = (strings = $fun($len))
+        end
+    end
+end
 
 function isascii_benchmarker(strings)
     ret = true
@@ -70,17 +107,22 @@ function isascii_benchmarker(strings)
 end
 
 g = addgroup!(SUITE, "isascii")
-h = addgroup!(g, "ASCII")
-length_ranges = [2:64, 64:512, 512:4096, 4096:32768]
-for len in length_ranges
-    h["length $len"] = @benchmarkable isascii_benchmarker(strings) setup = (strings = random_length_ascii_strings($len))
-end
-h = addgroup!(g, "single nonASCII")
-for len in length_ranges
-    h["length $len"] = @benchmarkable isascii_benchmarker(strings) setup = (strings = random_length_nonascii_strings($len))
+add_variable_length_benchmarks(g,isascii_benchmarker)
+add_julia_source_benchmarks(g,isascii_benchmarker)
+
+
+
+function isvalid_benchmarker(strings)
+    ret = true
+    for s in strings
+        ret &= isvalid(s)
+    end
+    return ret
 end
 
-add_julia_source_benchmarks(g,isascii_benchmarker)
+g = addgroup!(SUITE, "isvalid")
+add_variable_length_benchmarks(g,isvalid_benchmarker)
+add_julia_source_benchmarks(g,isvalid_benchmarker)
 
 function length_benchmarker(strings)
     ret = Int(0)
@@ -91,17 +133,7 @@ function length_benchmarker(strings)
 end
 
 g = addgroup!(SUITE, "length")
-h = addgroup!(g, "ASCII")
-length_ranges = [2:64, 64:512, 512:4096, 4096:32768]
-for len in length_ranges
-    h["length $len"] = @benchmarkable length_benchmarker(strings) setup = (strings = random_length_ascii_strings($len))
-end
-
-h = addgroup!(g, "single nonASCII")
-for len in length_ranges
-    h["length $len"] = @benchmarkable length_benchmarker(strings) setup = (strings = random_length_nonascii_strings($len))
-end
-
+add_variable_length_benchmarks(g,length_benchmarker)
 add_julia_source_benchmarks(g,length_benchmarker)
 
 
